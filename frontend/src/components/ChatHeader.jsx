@@ -4,7 +4,7 @@ import { useChatStore } from "../store/useChatStore";
 import { useState } from "react";
 
 const ChatHeader = () => {
-  const { selectedUser, setSelectedUser } = useChatStore();
+  const { selectedUser, setSelectedUser, isTyping } = useChatStore(); // 1. Get isTyping
   const { onlineUsers } = useAuthStore();
   const [selectedUserImg, setSelectedUserImg] = useState(null);
 
@@ -28,7 +28,12 @@ const ChatHeader = () => {
           <div>
             <h3 className="font-medium">{selectedUser.fullName}</h3>
             <p className="text-sm text-base-content/70">
-              {onlineUsers.includes(selectedUser._id) ? "Online" : "Offline"}
+              {/* 2. Show Typing Indicator if active, otherwise show Online status */}
+              {isTyping ? (
+                <span className="text-emerald-500 font-medium animate-pulse">Typing...</span>
+              ) : (
+                onlineUsers.includes(selectedUser._id) ? "Online" : "Offline"
+              )}
             </p>
           </div>
         </div>
@@ -54,7 +59,6 @@ const ChatHeader = () => {
               <X className="size-6" />
             </button>
             
-            {/* 🟢 CHANGED: Restricted size to w-80 h-80 (320px) */}
             <img 
               src={selectedUserImg} 
               alt="Profile" 
