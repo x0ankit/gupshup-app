@@ -126,7 +126,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   setSelectedUser: (selectedUser) => {
-    set({ selectedUser });
+    set({ selectedUser, isTyping: false });
     
     // When opening a chat, clear unread messages
     if (selectedUser) {
