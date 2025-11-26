@@ -130,7 +130,7 @@ const MessageInput = () => {
         {/* 5. Update Button to Show Loader */}
         <button
           type="submit"
-          className="btn btn-circle"
+          className="btn btn-sm btn-circle"
           disabled={!text.trim() && !imagePreview}
         >
           {isSending ? (
