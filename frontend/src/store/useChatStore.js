@@ -10,7 +10,7 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   isTyping: false,
-  unreadMessages: [], // ✅ ADDED: State for unread messages
+  unreadMessages: [],
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -50,32 +50,46 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
+    // Prevent duplicate listeners
+    socket.off("newMessage");
+    socket.off("typing");
+    socket.off("stopTyping");
+    socket.off("messagesMarkedAsRead");
+
+    // 1. Listen for new messages
     socket.on("newMessage", (newMessage) => {
-      const { selectedUser } = get();
-      
-      // Check if the new message is from the user we are currently chatting with
-      const isMessageSentFromSelectedUser = selectedUser?._id === newMessage.senderId;
+      const { selectedUser, messages, unreadMessages } = get();
+      const isMessageForCurrentChat = selectedUser?._id === newMessage.senderId;
 
-      if (isMessageSentFromSelectedUser) {
-        // 1. If chat is open, add it to the messages list
+      if (isMessageForCurrentChat) {
+        // If chat is open, add to message list
         set({
-          messages: [...get().messages, newMessage],
+          messages: [...messages, newMessage],
         });
-
-        // 2. Mark as read immediately since we are looking at it
+        
+        // Mark as read immediately
         const currentUserId = useAuthStore.getState().authUser._id;
         socket.emit("markMessagesAsRead", {
           senderId: selectedUser._id,
           receiverId: currentUserId,
         });
       } else {
-        // 3. ✅ If chat is closed, add to unread messages
+        // If chat is closed, add to unread count
         set({
-          unreadMessages: [...get().unreadMessages, newMessage],
+          unreadMessages: [...unreadMessages, newMessage],
         });
+        
+        // Play sound
+        try {
+          const sound = new Audio("/notification.mp3");
+          sound.play();
+        } catch (error) {
+          console.log("Sound error:", error);
+        }
       }
     });
 
+    // 2. Listen for Typing
     socket.on("typing", ({ senderId }) => {
       const { selectedUser } = get();
       if (selectedUser && selectedUser._id === senderId) {
@@ -90,11 +104,12 @@ export const useChatStore = create((set, get) => ({
       }
     });
 
+    // 3. Listen for Read Receipts
     socket.on("messagesMarkedAsRead", ({ receiverId }) => {
-      const { selectedUser } = get();
+      const { selectedUser, messages } = get();
       if (selectedUser && selectedUser._id === receiverId) {
         set({
-          messages: get().messages.map((message) => ({ ...message, isRead: true })),
+          messages: messages.map((message) => ({ ...message, isRead: true })),
         });
       }
     });
@@ -103,7 +118,7 @@ export const useChatStore = create((set, get) => ({
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
-    
+
     socket.off("newMessage");
     socket.off("typing");
     socket.off("stopTyping");
@@ -113,24 +128,13 @@ export const useChatStore = create((set, get) => ({
   setSelectedUser: (selectedUser) => {
     set({ selectedUser });
     
-    // ✅ Updated: When opening a chat, clear unread messages for that user
+    // When opening a chat, clear unread messages
     if (selectedUser) {
       const { unreadMessages } = get();
-      
-      // Keep only messages that are NOT from the selected user
       set({
         unreadMessages: unreadMessages.filter(
-            (msg) => msg.senderId !== selectedUser._id
-        )
-      });
-
-      // Mark messages as read in DB
-      const socket = useAuthStore.getState().socket;
-      const currentUserId = useAuthStore.getState().authUser._id;
-      
-      socket.emit("markMessagesAsRead", {
-        senderId: selectedUser._id,
-        receiverId: currentUserId,
+          (msg) => msg.senderId !== selectedUser._id
+        ),
       });
     }
   },
